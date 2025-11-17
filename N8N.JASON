@@ -1,0 +1,123 @@
+{
+  "name": "Demo: Jira → SQL → Ansible → Jira",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    ticketId: \"DEMO-123\",\n    summary: \"Run SQL on mock server\",\n    status: \"Approved\",\n    sqlFileName: \"demo.sql\",\n    sqlContent: \"SELECT * FROM mock_table;\",\n    targetServer: \"mock-db-01\"\n  }\n}];"
+      },
+      "id": "MockJira1",
+      "name": "Mock Jira Ticket",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 300],
+      "notesInFlow": true,
+      "notes": "Simulates a Jira API ticket with SQL file attached."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"status\"]}}",
+              "operation": "equal",
+              "value2": "Approved"
+            }
+          ]
+        }
+      },
+      "id": "ApprovalCheck1",
+      "name": "Check Approval",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [770, 300],
+      "notesInFlow": true,
+      "notes": "Only continue if the ticket was approved."
+    },
+    {
+      "parameters": {
+        "url": "https://mock-ansible.local/run",
+        "method": "POST",
+        "sendBody": true,
+        "jsonParameters": true,
+        "bodyParametersJson": "={\n  \"ticketId\": $json[\"ticketId\"],\n  \"server\": $json[\"targetServer\"],\n  \"sqlContent\": $json[\"sqlContent\"]\n}"
+      },
+      "id": "MockAnsible1",
+      "name": "Mock Ansible Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1030, 300],
+      "notesInFlow": true,
+      "notes": "Simulated API call to Ansible or automation engine."
+    },
+    {
+      "parameters": {
+        "url": "=https://mock-jira.local/ticket/{{$json[\"ticketId\"]}}/comment",
+        "method": "POST",
+        "sendBody": true,
+        "jsonParameters": true,
+        "bodyParametersJson": "={\n  \"comment\": \"Automation finished. Result: \" + $json[\"message\"]\n}"
+      },
+      "id": "MockJiraUpdate1",
+      "name": "Mock Jira Update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1290, 300],
+      "notesInFlow": true,
+      "notes": "Simulates updating a Jira ticket after automation."
+    }
+  ],
+  "connections": {
+    "MockJira1": {
+      "main": [
+        [
+          {
+            "node": "Check Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval": {
+      "main": [
+        [
+          {
+            "node": "Mock Ansible Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Ansible Run": {
+      "main": [
+        [
+          {
+            "node": "Mock Jira Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Jira Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
